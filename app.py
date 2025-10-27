@@ -183,11 +183,367 @@ if operation == "Basic Operations (Add/Sub/Multiply)":
             st.write(f"A is {matrix_a.shape[0]}×{matrix_a.shape[1]}, B is {matrix_b.shape[0]}×{matrix_b.shape[1]}")
             st.write(f"Result will be {matrix_a.shape[0]}×{matrix_b.shape[1]}")
             
-            st.write("**Step 2:** Calculate A × B")
-            st.write("Each element [i,j] = sum of (row i of A) × (column j of B)")
+            st.write("**Step 2:** Interactive Matrix Multiplication Visualization")
             
             result = np.matmul(matrix_a, matrix_b)
-            st.write("**A × B =**")
+            
+            # Convert matrices to JSON for JavaScript
+            import json
+            matrix_a_json = json.dumps(matrix_a.tolist())
+            matrix_b_json = json.dumps(matrix_b.tolist())
+            result_json = json.dumps(result.tolist())
+            
+            # Create interactive HTML/JS visualization
+            st.components.v1.html(f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: transparent;
+                        margin: 0;
+                        padding: 20px;
+                    }}
+                    .container {{
+                        display: flex;
+                        flex-direction: column;
+                        gap: 20px;
+                        align-items: center;
+                    }}
+                    .matrices-row {{
+                        display: flex;
+                        gap: 30px;
+                        align-items: center;
+                        justify-content: center;
+                        flex-wrap: wrap;
+                    }}
+                    .matrix-container {{
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }}
+                    .matrix-label {{
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                        font-size: 18px;
+                        color: #1f77b4;
+                    }}
+                    table {{
+                        border-collapse: collapse;
+                        background: rgba(255, 255, 255, 0.05);
+                        border-radius: 8px;
+                        overflow: hidden;
+                    }}
+                    td {{
+                        padding: 12px 16px;
+                        text-align: center;
+                        border: 1px solid rgba(128, 128, 128, 0.3);
+                        min-width: 50px;
+                        font-size: 16px;
+                        transition: all 0.3s ease;
+                    }}
+                    .highlight-row {{
+                        background-color: rgba(31, 119, 180, 0.4) !important;
+                        transform: scale(1.05);
+                        font-weight: bold;
+                    }}
+                    .highlight-col {{
+                        background-color: rgba(255, 127, 14, 0.4) !important;
+                        transform: scale(1.05);
+                        font-weight: bold;
+                    }}
+                    .highlight-result {{
+                        background-color: rgba(44, 160, 44, 0.5) !important;
+                        transform: scale(1.1);
+                        font-weight: bold;
+                        box-shadow: 0 0 20px rgba(44, 160, 44, 0.6);
+                    }}
+                    .controls {{
+                        display: flex;
+                        gap: 10px;
+                        margin: 20px 0;
+                        flex-wrap: wrap;
+                        justify-content: center;
+                    }}
+                    button {{
+                        padding: 12px 24px;
+                        font-size: 16px;
+                        cursor: pointer;
+                        border: none;
+                        border-radius: 8px;
+                        background: linear-gradient(135deg, #1f77b4, #1a5f8f);
+                        color: white;
+                        font-weight: bold;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    }}
+                    button:hover {{
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+                        background: linear-gradient(135deg, #1a5f8f, #1f77b4);
+                    }}
+                    button:disabled {{
+                        background: #666;
+                        cursor: not-allowed;
+                        transform: none;
+                    }}
+                    .calculation {{
+                        margin: 20px 0;
+                        padding: 20px;
+                        background: rgba(31, 119, 180, 0.1);
+                        border-radius: 8px;
+                        border-left: 4px solid #1f77b4;
+                        min-height: 80px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                    }}
+                    .calc-title {{
+                        font-weight: bold;
+                        color: #1f77b4;
+                        margin-bottom: 10px;
+                        font-size: 18px;
+                    }}
+                    .calc-formula {{
+                        font-family: 'Courier New', monospace;
+                        font-size: 16px;
+                        line-height: 1.6;
+                        color: #e0e0e0;
+                    }}
+                    .operator {{
+                        font-size: 24px;
+                        color: #1f77b4;
+                        font-weight: bold;
+                    }}
+                    .speed-control {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }}
+                    input[type="range"] {{
+                        width: 200px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="controls">
+                        <button onclick="startAnimation()" id="startBtn">▶️ Start Animation</button>
+                        <button onclick="pauseAnimation()" id="pauseBtn" disabled>⏸️ Pause</button>
+                        <button onclick="resetAnimation()" id="resetBtn">🔄 Reset</button>
+                        <button onclick="stepForward()" id="stepBtn">⏭️ Next Step</button>
+                        <div class="speed-control">
+                            <label>Speed:</label>
+                            <input type="range" id="speedRange" min="200" max="2000" value="1000" step="100">
+                            <span id="speedLabel">1.0x</span>
+                        </div>
+                    </div>
+                    
+                    <div class="calculation" id="calculation">
+                        <div class="calc-title">Click "Start Animation" to see how matrix multiplication works!</div>
+                        <div class="calc-formula">Each element is calculated by multiplying row elements with column elements</div>
+                    </div>
+                    
+                    <div class="matrices-row">
+                        <div class="matrix-container">
+                            <div class="matrix-label">Matrix A</div>
+                            <table id="matrixA"></table>
+                        </div>
+                        
+                        <div class="operator">×</div>
+                        
+                        <div class="matrix-container">
+                            <div class="matrix-label">Matrix B</div>
+                            <table id="matrixB"></table>
+                        </div>
+                        
+                        <div class="operator">=</div>
+                        
+                        <div class="matrix-container">
+                            <div class="matrix-label">Result Matrix</div>
+                            <table id="matrixResult"></table>
+                        </div>
+                    </div>
+                </div>
+                
+                <script>
+                    const matrixA = {matrix_a_json};
+                    const matrixB = {matrix_b_json};
+                    const result = {result_json};
+                    
+                    let currentRow = 0;
+                    let currentCol = 0;
+                    let animationInterval = null;
+                    let isPaused = false;
+                    let animationSpeed = 1000;
+                    
+                    function createMatrix(matrix, containerId) {{
+                        const table = document.getElementById(containerId);
+                        table.innerHTML = '';
+                        matrix.forEach((row, i) => {{
+                            const tr = document.createElement('tr');
+                            row.forEach((cell, j) => {{
+                                const td = document.createElement('td');
+                                td.textContent = cell.toFixed(2);
+                                td.id = `${{containerId}}_${{i}}_${{j}}`;
+                                tr.appendChild(td);
+                            }});
+                            table.appendChild(tr);
+                        }});
+                    }}
+                    
+                    function createResultMatrix() {{
+                        const table = document.getElementById('matrixResult');
+                        table.innerHTML = '';
+                        result.forEach((row, i) => {{
+                            const tr = document.createElement('tr');
+                            row.forEach((cell, j) => {{
+                                const td = document.createElement('td');
+                                td.textContent = '?';
+                                td.id = `matrixResult_${{i}}_${{j}}`;
+                                tr.appendChild(td);
+                            }});
+                            table.appendChild(tr);
+                        }});
+                    }}
+                    
+                    function clearHighlights() {{
+                        document.querySelectorAll('td').forEach(td => {{
+                            td.classList.remove('highlight-row', 'highlight-col', 'highlight-result');
+                        }});
+                    }}
+                    
+                    function calculateElement(row, col) {{
+                        clearHighlights();
+                        
+                        // Highlight row in matrix A
+                        matrixA[row].forEach((_, j) => {{
+                            document.getElementById(`matrixA_${{row}}_${{j}}`).classList.add('highlight-row');
+                        }});
+                        
+                        // Highlight column in matrix B
+                        matrixB.forEach((_, i) => {{
+                            document.getElementById(`matrixB_${{i}}_${{col}}`).classList.add('highlight-col');
+                        }});
+                        
+                        // Calculate and show formula
+                        let formula = `Result[${{row}}][${{col}}] = `;
+                        let calculations = [];
+                        let sum = 0;
+                        
+                        for (let k = 0; k < matrixA[row].length; k++) {{
+                            const a = matrixA[row][k];
+                            const b = matrixB[k][col];
+                            const product = a * b;
+                            sum += product;
+                            calculations.push(`(${{a.toFixed(2)}} × ${{b.toFixed(2)}})`);
+                        }}
+                        
+                        formula += calculations.join(' + ');
+                        formula += ` = ${{sum.toFixed(4)}}`;
+                        
+                        document.getElementById('calculation').innerHTML = `
+                            <div class="calc-title">Calculating Element [${{row}}][${{col}}]</div>
+                            <div class="calc-formula">${{formula}}</div>
+                        `;
+                        
+                        // Update result matrix
+                        const resultCell = document.getElementById(`matrixResult_${{row}}_${{col}}`);
+                        resultCell.textContent = sum.toFixed(4);
+                        resultCell.classList.add('highlight-result');
+                    }}
+                    
+                    function stepForward() {{
+                        if (currentRow < result.length) {{
+                            calculateElement(currentRow, currentCol);
+                            
+                            currentCol++;
+                            if (currentCol >= result[0].length) {{
+                                currentCol = 0;
+                                currentRow++;
+                            }}
+                            
+                            if (currentRow >= result.length) {{
+                                document.getElementById('calculation').innerHTML = `
+                                    <div class="calc-title">✅ Animation Complete!</div>
+                                    <div class="calc-formula">All elements have been calculated successfully.</div>
+                                `;
+                                stopAnimation();
+                            }}
+                        }}
+                    }}
+                    
+                    function startAnimation() {{
+                        if (currentRow >= result.length) {{
+                            resetAnimation();
+                        }}
+                        
+                        document.getElementById('startBtn').disabled = true;
+                        document.getElementById('pauseBtn').disabled = false;
+                        document.getElementById('stepBtn').disabled = true;
+                        isPaused = false;
+                        
+                        animationInterval = setInterval(() => {{
+                            if (!isPaused) {{
+                                stepForward();
+                            }}
+                        }}, animationSpeed);
+                    }}
+                    
+                    function pauseAnimation() {{
+                        isPaused = !isPaused;
+                        document.getElementById('pauseBtn').textContent = isPaused ? '▶️ Resume' : '⏸️ Pause';
+                    }}
+                    
+                    function stopAnimation() {{
+                        clearInterval(animationInterval);
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('pauseBtn').disabled = true;
+                        document.getElementById('stepBtn').disabled = false;
+                    }}
+                    
+                    function resetAnimation() {{
+                        stopAnimation();
+                        currentRow = 0;
+                        currentCol = 0;
+                        clearHighlights();
+                        createResultMatrix();
+                        document.getElementById('calculation').innerHTML = `
+                            <div class="calc-title">Click "Start Animation" to see how matrix multiplication works!</div>
+                            <div class="calc-formula">Each element is calculated by multiplying row elements with column elements</div>
+                        `;
+                    }}
+                    
+                    // Speed control
+                    document.getElementById('speedRange').addEventListener('input', (e) => {{
+                        animationSpeed = parseInt(e.target.value);
+                        const speed = (2200 - animationSpeed) / 1000;
+                        document.getElementById('speedLabel').textContent = speed.toFixed(1) + 'x';
+                        
+                        if (animationInterval) {{
+                            clearInterval(animationInterval);
+                            if (!isPaused) {{
+                                animationInterval = setInterval(() => {{
+                                    if (!isPaused) {{
+                                        stepForward();
+                                    }}
+                                }}, animationSpeed);
+                            }}
+                        }}
+                    }});
+                    
+                    // Initialize
+                    createMatrix(matrixA, 'matrixA');
+                    createMatrix(matrixB, 'matrixB');
+                    createResultMatrix();
+                </script>
+            </body>
+            </html>
+            """, height=700)
+            
+            st.markdown("---")
+            st.write("**Final Result: A × B =**")
             st.write(format_matrix(result))
             st.success("✅ Multiplication completed successfully!")
 
