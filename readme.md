@@ -145,9 +145,9 @@ Eigenvalues: λ₁ = 4, λ₂ = 2
 
 Planned features for future versions:
 
-- [ ] System of Linear Equations Solver (Ax = b)
-- [ ] Matrix Decompositions (LU, QR, SVD, Cholesky)
-- [ ] Import/Export functionality (CSV, Excel)
+- [✅ ] System of Linear Equations Solver (Ax = b)
+- [✅ ] Matrix Decompositions (LU, QR, SVD, Cholesky)
+- [✅ ] Import/Export functionality (CSV, Excel)
 - [ ] Matrix visualizations (Heatmaps)
 - [ ] Gaussian Elimination with step-by-step row operations
 - [ ] Symbolic computation with fractions

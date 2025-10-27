@@ -99,7 +99,10 @@ operation = st.sidebar.selectbox(
      "Transpose", 
      "Determinant & Inverse",
      "Advanced Properties",
-     "Power & Scalar Operations"]
+     "Power & Scalar Operations",
+     "System of Linear Equations",
+     "Matrix Decompositions",
+     "Import/Export Matrix"]
 )
 
 st.sidebar.markdown("---")
@@ -774,6 +777,440 @@ elif operation == "Power & Scalar Operations":
             st.write(f"**A^{power}** (A multiplied by itself {power} times)")
             power_result = np.linalg.matrix_power(matrix, power)
             st.write(format_matrix(power_result))
+
+elif operation == "System of Linear Equations":
+    st.header("📐 System of Linear Equations Solver (Ax = b)")
+    
+    st.write("Solve the system: **Ax = b**")
+    
+    size = st.selectbox("Number of equations/variables", [2, 3, 4, 5], index=1, key="eq_size")
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        st.subheader("Coefficient Matrix A")
+        matrix_a = []
+        for i in range(size):
+            row = []
+            cols = st.columns(size)
+            for j in range(size):
+                with cols[j]:
+                    val = st.number_input(f"a[{i},{j}]", value=1.0 if i == j else 0.0, 
+                                         key=f"eq_a_{i}_{j}", label_visibility="collapsed")
+                    row.append(val)
+            matrix_a.append(row)
+        matrix_a = np.array(matrix_a)
+    
+    with col2:
+        st.subheader("Constants Vector b")
+        vector_b = []
+        for i in range(size):
+            val = st.number_input(f"b[{i}]", value=float(i+1), 
+                                 key=f"eq_b_{i}", label_visibility="collapsed")
+            vector_b.append(val)
+        vector_b = np.array(vector_b)
+    
+    method = st.radio("Solution Method:", 
+                     ["Matrix Inverse", "Gaussian Elimination", "LU Decomposition"], 
+                     horizontal=True)
+    
+    if st.button("Solve System", type="primary"):
+        st.markdown("---")
+        
+        # Display the system
+        st.subheader("System of Equations")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Matrix A:**")
+            st.write(format_matrix(matrix_a))
+        with col2:
+            st.write("**Vector b:**")
+            st.write(format_matrix(vector_b.reshape(-1, 1)))
+        
+        # Check if solvable
+        det = np.linalg.det(matrix_a)
+        rank_a = np.linalg.matrix_rank(matrix_a)
+        augmented = np.column_stack([matrix_a, vector_b])
+        rank_ab = np.linalg.matrix_rank(augmented)
+        
+        st.markdown("---")
+        st.subheader("📊 System Analysis")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Determinant", f"{det:.4f}")
+        with col2:
+            st.metric("Rank(A)", rank_a)
+        with col3:
+            st.metric("Rank([A|b])", rank_ab)
+        
+        if abs(det) < 1e-10:
+            st.error("⚠️ The system has no unique solution (det = 0)")
+        elif rank_a != rank_ab:
+            st.error("⚠️ The system is inconsistent (no solution)")
+        else:
+            st.success("✅ The system has a unique solution")
+            
+            st.markdown("---")
+            
+            if method == "Matrix Inverse":
+                st.subheader("Method: Matrix Inverse (x = A⁻¹b)")
+                
+                st.write("**Step 1:** Calculate A⁻¹")
+                try:
+                    inverse_a = np.linalg.inv(matrix_a)
+                    st.write(format_matrix(inverse_a))
+                    
+                    st.write("**Step 2:** Multiply A⁻¹ by b")
+                    solution = np.dot(inverse_a, vector_b)
+                    st.write("**x = A⁻¹b =**")
+                    st.write(format_matrix(solution.reshape(-1, 1)))
+                except:
+                    st.error("Could not compute inverse")
+                    solution = None
+                    
+            elif method == "Gaussian Elimination":
+                st.subheader("Method: Gaussian Elimination")
+                
+                # Create augmented matrix
+                aug_matrix = np.column_stack([matrix_a.copy(), vector_b.copy()])
+                st.write("**Step 1:** Augmented Matrix [A|b]")
+                st.write(format_matrix(aug_matrix))
+                
+                # Forward elimination
+                n = len(aug_matrix)
+                for i in range(n):
+                    # Partial pivoting
+                    max_row = i + np.argmax(abs(aug_matrix[i:, i]))
+                    aug_matrix[[i, max_row]] = aug_matrix[[max_row, i]]
+                    
+                    # Make diagonal 1
+                    aug_matrix[i] = aug_matrix[i] / aug_matrix[i][i]
+                    
+                    # Eliminate below
+                    for j in range(i+1, n):
+                        aug_matrix[j] = aug_matrix[j] - aug_matrix[j][i] * aug_matrix[i]
+                
+                st.write("**Step 2:** Row Echelon Form")
+                st.write(format_matrix(aug_matrix))
+                
+                # Back substitution
+                solution = np.zeros(n)
+                for i in range(n-1, -1, -1):
+                    solution[i] = aug_matrix[i][-1] - np.dot(aug_matrix[i][i+1:n], solution[i+1:])
+                
+                st.write("**Step 3:** Back Substitution")
+                
+            elif method == "LU Decomposition":
+                st.subheader("Method: LU Decomposition")
+                
+                from scipy.linalg import lu
+                P, L, U = lu(matrix_a)
+                
+                st.write("**Step 1:** Decompose A = PLU")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write("**P (Permutation):**")
+                    st.write(format_matrix(P))
+                with col2:
+                    st.write("**L (Lower):**")
+                    st.write(format_matrix(L))
+                with col3:
+                    st.write("**U (Upper):**")
+                    st.write(format_matrix(U))
+                
+                st.write("**Step 2:** Solve Ly = Pb (forward substitution)")
+                Pb = np.dot(P, vector_b)
+                y = np.linalg.solve(L, Pb)
+                st.write(f"y = {format_matrix(y.reshape(-1, 1)).flatten()}")
+                
+                st.write("**Step 3:** Solve Ux = y (back substitution)")
+                solution = np.linalg.solve(U, y)
+            
+            # Display solution
+            st.markdown("---")
+            st.subheader("🎯 Solution")
+            if solution is not None:
+                for i, val in enumerate(solution):
+                    st.write(f"**x{i} = {val:.6f}**")
+                
+                # Verification
+                st.markdown("---")
+                st.subheader("✓ Verification")
+                verification = np.dot(matrix_a, solution)
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Ax (calculated):**")
+                    st.write(format_matrix(verification.reshape(-1, 1)))
+                with col2:
+                    st.write("**b (expected):**")
+                    st.write(format_matrix(vector_b.reshape(-1, 1)))
+                
+                if np.allclose(verification, vector_b):
+                    st.success("✅ Solution verified: Ax = b")
+                else:
+                    st.warning("⚠️ Small numerical errors present")
+
+elif operation == "Matrix Decompositions":
+    st.header("🔬 Matrix Decompositions")
+    
+    decomp_type = st.selectbox(
+        "Select Decomposition Type",
+        ["LU Decomposition", "QR Decomposition", "SVD (Singular Value)", "Cholesky Decomposition"]
+    )
+    
+    size = st.selectbox("Matrix Size", [2, 3, 4, 5], index=1, key="decomp_size")
+    
+    st.subheader("Input Matrix")
+    matrix = []
+    for i in range(size):
+        row = []
+        cols = st.columns(size)
+        for j in range(size):
+            with cols[j]:
+                val = st.number_input(f"[{i},{j}]", value=1.0 if i == j else 0.0, 
+                                     key=f"decomp_{i}_{j}", label_visibility="collapsed")
+                row.append(val)
+        matrix.append(row)
+    matrix = np.array(matrix)
+    
+    if st.button("Decompose", type="primary"):
+        st.markdown("---")
+        st.header("Original Matrix A")
+        st.write(format_matrix(matrix))
+        
+        st.markdown("---")
+        
+        try:
+            if decomp_type == "LU Decomposition":
+                st.subheader("LU Decomposition: A = PLU")
+                st.write("Decomposes A into Lower and Upper triangular matrices")
+                
+                from scipy.linalg import lu
+                P, L, U = lu(matrix)
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write("**P (Permutation Matrix):**")
+                    st.write(format_matrix(P))
+                with col2:
+                    st.write("**L (Lower Triangular):**")
+                    st.write(format_matrix(L))
+                with col3:
+                    st.write("**U (Upper Triangular):**")
+                    st.write(format_matrix(U))
+                
+                # Verification
+                st.markdown("---")
+                st.subheader("✓ Verification: PLU")
+                reconstruction = np.dot(P, np.dot(L, U))
+                st.write(format_matrix(reconstruction))
+                if np.allclose(reconstruction, matrix):
+                    st.success("✅ Decomposition verified!")
+                    
+            elif decomp_type == "QR Decomposition":
+                st.subheader("QR Decomposition: A = QR")
+                st.write("Decomposes A into Orthogonal (Q) and Upper triangular (R) matrices")
+                
+                Q, R = np.linalg.qr(matrix)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Q (Orthogonal Matrix):**")
+                    st.write(format_matrix(Q))
+                    st.write("**Properties:**")
+                    st.write("- Columns are orthonormal")
+                    st.write("- QᵀQ = I")
+                with col2:
+                    st.write("**R (Upper Triangular):**")
+                    st.write(format_matrix(R))
+                
+                # Verification
+                st.markdown("---")
+                st.subheader("✓ Verification")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**QR:**")
+                    reconstruction = np.dot(Q, R)
+                    st.write(format_matrix(reconstruction))
+                with col2:
+                    st.write("**QᵀQ:**")
+                    qtq = np.dot(Q.T, Q)
+                    st.write(format_matrix(qtq))
+                
+                if np.allclose(reconstruction, matrix):
+                    st.success("✅ Decomposition verified!")
+                    
+            elif decomp_type == "SVD (Singular Value)":
+                st.subheader("SVD: A = UΣVᵀ")
+                st.write("Singular Value Decomposition")
+                
+                U, S, Vt = np.linalg.svd(matrix)
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write("**U (Left Singular Vectors):**")
+                    st.write(format_matrix(U))
+                with col2:
+                    st.write("**Σ (Singular Values):**")
+                    st.write(format_matrix(np.diag(S)))
+                with col3:
+                    st.write("**Vᵀ (Right Singular Vectors):**")
+                    st.write(format_matrix(Vt))
+                
+                st.markdown("---")
+                st.subheader("Singular Values")
+                for i, s in enumerate(S):
+                    st.write(f"σ{i+1} = {s:.6f}")
+                
+                # Verification
+                st.markdown("---")
+                st.subheader("✓ Verification: UΣVᵀ")
+                reconstruction = np.dot(U, np.dot(np.diag(S), Vt))
+                st.write(format_matrix(reconstruction))
+                if np.allclose(reconstruction, matrix):
+                    st.success("✅ Decomposition verified!")
+                    
+            elif decomp_type == "Cholesky Decomposition":
+                st.subheader("Cholesky Decomposition: A = LLᵀ")
+                st.write("Only for symmetric positive-definite matrices")
+                
+                # Check if symmetric
+                if not np.allclose(matrix, matrix.T):
+                    st.error("⚠️ Matrix must be symmetric for Cholesky decomposition")
+                else:
+                    try:
+                        L = np.linalg.cholesky(matrix)
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write("**L (Lower Triangular):**")
+                            st.write(format_matrix(L))
+                        with col2:
+                            st.write("**Lᵀ (Upper Triangular):**")
+                            st.write(format_matrix(L.T))
+                        
+                        # Verification
+                        st.markdown("---")
+                        st.subheader("✓ Verification: LLᵀ")
+                        reconstruction = np.dot(L, L.T)
+                        st.write(format_matrix(reconstruction))
+                        if np.allclose(reconstruction, matrix):
+                            st.success("✅ Decomposition verified!")
+                    except np.linalg.LinAlgError:
+                        st.error("⚠️ Matrix is not positive-definite")
+                        
+        except Exception as e:
+            st.error(f"Error during decomposition: {str(e)}")
+
+elif operation == "Import/Export Matrix":
+    st.header("📁 Import/Export Matrix")
+    
+    tab1, tab2 = st.tabs(["📥 Import", "📤 Export"])
+    
+    with tab1:
+        st.subheader("Import Matrix from File")
+        
+        import_method = st.radio("Import Method:", ["Upload CSV/Excel", "Paste Data"], horizontal=True)
+        
+        if import_method == "Upload CSV/Excel":
+            uploaded_file = st.file_uploader("Choose a file", type=['csv', 'xlsx', 'xls'])
+            
+            if uploaded_file is not None:
+                try:
+                    if uploaded_file.name.endswith('.csv'):
+                        df = pd.read_csv(uploaded_file, header=None)
+                    else:
+                        df = pd.read_excel(uploaded_file, header=None)
+                    
+                    matrix = df.values
+                    st.success(f"✅ Matrix loaded successfully! Shape: {matrix.shape}")
+                    
+                    st.write("**Imported Matrix:**")
+                    st.write(format_matrix(matrix))
+                    
+                    # Basic operations on imported matrix
+                    st.markdown("---")
+                    st.subheader("Quick Analysis")
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Rows", matrix.shape[0])
+                    with col2:
+                        st.metric("Columns", matrix.shape[1])
+                    with col3:
+                        if matrix.shape[0] == matrix.shape[1]:
+                            det = np.linalg.det(matrix)
+                            st.metric("Determinant", f"{det:.4f}")
+                        else:
+                            st.metric("Type", "Non-square")
+                    
+                except Exception as e:
+                    st.error(f"Error reading file: {str(e)}")
+        
+        else:  # Paste Data
+            st.write("Paste matrix data (comma or space separated):")
+            pasted_data = st.text_area("Matrix Data", height=200, 
+                                       placeholder="1, 2, 3\n4, 5, 6\n7, 8, 9")
+            
+            if st.button("Load Matrix"):
+                try:
+                    # Try comma separated first
+                    if ',' in pasted_data:
+                        rows = [list(map(float, line.split(','))) for line in pasted_data.strip().split('\n')]
+                    else:
+                        rows = [list(map(float, line.split())) for line in pasted_data.strip().split('\n')]
+                    
+                    matrix = np.array(rows)
+                    st.success(f"✅ Matrix loaded! Shape: {matrix.shape}")
+                    st.write(format_matrix(matrix))
+                    
+                except Exception as e:
+                    st.error(f"Error parsing data: {str(e)}")
+    
+    with tab2:
+        st.subheader("Export Matrix to File")
+        
+        # Let user create a matrix to export
+        export_size_rows = st.number_input("Rows", min_value=2, max_value=10, value=3, key="exp_rows")
+        export_size_cols = st.number_input("Columns", min_value=2, max_value=10, value=3, key="exp_cols")
+        
+        st.write("**Matrix to Export:**")
+        export_matrix = []
+        for i in range(export_size_rows):
+            row = []
+            cols = st.columns(export_size_cols)
+            for j in range(export_size_cols):
+                with cols[j]:
+                    val = st.number_input(f"[{i},{j}]", value=float(i * export_size_cols + j + 1), 
+                                         key=f"exp_{i}_{j}", label_visibility="collapsed")
+                    row.append(val)
+            export_matrix.append(row)
+        export_matrix = np.array(export_matrix)
+        
+        st.write(format_matrix(export_matrix))
+        
+        # Export options
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Export as CSV")
+            csv_data = pd.DataFrame(export_matrix).to_csv(index=False, header=False)
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv_data,
+                file_name="matrix.csv",
+                mime="text/csv"
+            )
+        
+        with col2:
+            st.subheader("Export as Text")
+            text_data = '\n'.join(['\t'.join(map(str, row)) for row in export_matrix])
+            st.download_button(
+                label="📥 Download TXT",
+                data=text_data,
+                file_name="matrix.txt",
+                mime="text/plain"
+            )
 
 # Examples and Help
 st.sidebar.markdown("---")
